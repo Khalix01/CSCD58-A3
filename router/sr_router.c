@@ -22,6 +22,9 @@
 #include "sr_arpcache.h"
 #include "sr_utils.h"
 
+int check_length(uint8_t *buf,unsigned int length);
+int check_checksum(sr_ip_hdr_t *ip_hdr);
+
 /*---------------------------------------------------------------------
  * Method: sr_init(void)
  * Scope:  Global
@@ -82,3 +85,35 @@ void sr_handlepacket(struct sr_instance* sr,
 
 }/* end sr_ForwardPacket */
 
+int check_length(uint8_t *buf, unsigned int len){ 
+    // returns 0 if the lenth is as expected, 1 otherwise.
+    // this is done so data curruption (ie the return being changed to non-zero)
+    // functions as expect when we do `(!check_length)`
+    // tl;dr !ceck_length(...)is true iff buff is the expected length
+    int min = sizeof(sr_ethernet_hdr_t);
+    if (length < min) return 1;
+
+    uint16_t type = ethertype(buf);
+    if (type == ethertype_ip) { //if its an ip packet
+        min += sizeof(sr_ip_hdr_t);
+        if (length < min) return 1;
+
+        if (ip_protocol(buf + sizeof(sr_ethernet_hdr_t)) == ip_protocol_icmp) { //checking if its a ICMP ping
+            min += sizeof(sr_icmp_hdr_t);
+            if (length < min) return 1;
+        }
+    }
+    else if (type == ethertype_arp) { //if its an arp packet
+        min += sizeof(sr_arp_hdr_t);
+        if (length < min) return 1;
+    }
+    else return 1; //if its an unhandled packet
+    return 0;
+}
+
+int check_checksum(sr_ip_hdr_t *ip_hdr) {
+    // returns 0 iff checksum is correct, 1 other wise
+    // We do this for the same reason as check_length
+    if (cksum(ip_hdr, sizeof(sr_ip_hdr_t)) != ip_hdr->ip_sum) return 1;
+    return 0;
+}
