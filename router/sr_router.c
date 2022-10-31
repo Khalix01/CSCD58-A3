@@ -22,13 +22,6 @@
 #include "sr_arpcache.h"
 #include "sr_utils.h"
 
-int check_length(uint8_t *buf,unsigned int len);
-struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip);
-struct sr_rt* searchSubnet(struct sr_instance* sr, uint32_t ip)
-void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hdr *arp_hdr, unsigned short type);
-void setEthHeader(struct sr_ethernet_hdr *hcr, uint8_t *dst, uint8_t *src, uint16_t type);
-void setIPHeader(struct sr_ip_hdr *hdr, uint32_t dst, uint32_t src, uint16_t type);
-
 /*---------------------------------------------------------------------
  * Method: sr_init(void)
  * Scope:  Global
@@ -98,7 +91,6 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_if *source_if = sr_get_interface(sr, interface);
     
     if (ethProtocol == ethertype_arp) { //If ARP
-        // TODO parse and process ARP packets
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(frame);
         struct sr_if *target_interface=searchIP(sr,ip_hdr->ip_dst);;
