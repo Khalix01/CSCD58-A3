@@ -98,7 +98,6 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_if *source_if = sr_get_interface(sr, interface);
     
     if (ethProtocol == ethertype_arp) { //If ARP
-        // TODO parse and process ARP packets
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(frame);
         struct sr_if *target_interface=searchIP(sr,ip_hdr->ip_dst);;
