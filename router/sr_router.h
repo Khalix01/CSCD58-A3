@@ -81,5 +81,4 @@ void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hd
 void setEthHeader(struct sr_ethernet_hdr *hcr, uint8_t *dst, uint8_t *src, uint16_t type);
 void setIPHeader(struct sr_ip_hdr *hdr, uint32_t dst, uint32_t src, uint16_t type);
 
-
 #endif /* SR_ROUTER_H */
