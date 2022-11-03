@@ -24,7 +24,7 @@
 
 int check_length(uint8_t *buf,unsigned int len);
 struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip);
-struct sr_if* searchSubnet(struct sr_instance* sr, uint32_t ip)
+struct sr_if* searchSubnet(struct sr_instance* sr, uint32_t ip);
 void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hdr *arp_hdr, unsigned short type);
 void setEthHeader(struct sr_ethernet_hdr *hcr, uint8_t *dst, uint8_t *src, uint16_t type);
 void setIPHeader(struct sr_ip_hdr *hdr, uint32_t dst, uint32_t src, uint16_t type);
@@ -94,24 +94,30 @@ void sr_handlepacket(struct sr_instance* sr,
     }
 
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *)packet; //extract headers
-    uint16_t chksum, ethProtocol = ethertype(packet); //get protocal
+    uint16_t chksum, ethProtocol = ethertype(packet); //get protocol
     struct sr_if *source_if = sr_get_interface(sr, interface);
     
     if (ethProtocol == ethertype_arp) { //If ARP
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(frame);
-        struct sr_if *target_interface=searchIP(sr,ip_hdr->ip_dst);;
+        struct sr_if *target_interface=searchIP(sr,arp_hdr->ar_tip);
 
         if(target_interface!=NULL){ //if its an handels interface
+            //TODO: Check IP address is one of of router's IP addresses
             if (ntohs(arp_hdr->ar_op) == arp_op_request) { //if its a request
-                // TODO send ARP reply
+                //send a reply
+                struct arp_packet *sr_arp_send_hdr;
+                setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arptype(arp_op_reply));
+                setEthHeader(sr_arp_send_hdr->arp_hdr, arp_hdr->ar_sip, target_interface, ethertype(ethHeader->ether_type));
+                
+                sr_send_arp(sr, sr_arp_send_hdr, len); //Not sure about this
             }
             else if (ntohs(arp_hdr->ar_op) == arp_op_reply) {//if it is a reply
 
                 struct sr_arpreq *arpreq = sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, ntohl(arp_hdr->ar_sip));// insert into cache
                 if (arpreq) {//send all packets on the req->packets linked list
                     for (struct sr_packet *pkt=arpreq->packets; pkt != NULL; pkt=pkt->next) {
-                        setEthHeader((struct sr_ethernet_hdr *)pkt->buf, arp_hdr->ar_sha, source_if->addr, ethertype(pkt->buf));
+                        setEthHeader((struct sr_ethernet_hdr *)pkt->buf, arp_hdr->ar_sha, target_interface->addr, ethertype(ethertype_arp));
                         sr_send_packet(sr, pkt->buf, pkt->len, pkt->iface);
                     }
                     sr_arpreq_destroy(&(sr->cache), arpreq);
@@ -144,35 +150,28 @@ void sr_handlepacket(struct sr_instance* sr,
                     fprintf(stderr, "Not a ICMP echo\n");
                     return;
                 }
+                
                 chksum = icmp_hdr->icmp_sum;
                 icmp_hdr->icmp_sum = 0;
                 icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
                 if (chksum != icmp_hdr->icmp_sum) {
                   fprintf(stderr, "Incorrect ICMP checksum\n");
                   return;
-                }             
-
-                // TODO create and send ICMP echo packet (type 8, code 0)
-
-                // construct_eth_header(packet, ehdr->ether_shost, source_if->addr, ethertype_ip);
-                // construct_ip_header(frame, ip_hdr->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
-                // construct_icmp_header(packet, source_if, 0, 0, len);
-                // sr_send_packet(sr, packet, len, source_if->name);
+                }
+                sendICMPHeader(sr, target_interface, source_if, ip_hdr, 0, 0);
             
             }
-            else if (protocol == ip_protocol_tcp || protocol == ip_protocol_udp) { // if its TCP or UDP, send an ICMP unreachable
-                // TODO create and send ICMP unreachable (type 3, code 3)
+            else if (protocol == ip_protocol_tcp || protocol == ip_protocol_udp) { // if its TCP or UDP, send an ICMP unreachable type3 code3
+                sendICMPHeader3(sr, target_interface, source_if, ip_hdr, 3);
             }
-        }
-        else { //if not, forward the packet
+        } else { //if not, forward the packet
             ip_hdr->ip_ttl--; // decraease TTL and recompute checksum
             ip_hdr->ip_sum = 0;
             ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
 
             if (ip_hdr->ip_ttl < 0) {//if TTL has run out
-                // TODO send ICMP Timeout (type 11, code 0)
-            }
-            else{ //else forwad the packet
+                sendICMPHeader(sr, target_interface, source_if, ip_hdr, 11, 0);
+            } else{ //else forwad the packet
                 
                 char *target_interface = searchSubnet(sr, ip_hdr->ip_dst); //USE LPM to find subnet
 
@@ -191,7 +190,8 @@ void sr_handlepacket(struct sr_instance* sr,
                   
                 }
                 else {
-                    // TODO send ICMP unreachable (code 3, type 3)
+                    //send ICMP type 3 code 0 since its not a handled interface
+                    sendICMPHeader3(sr, target_interface, source_if, ip_hdr, 0);
                 }
             }
         }
@@ -219,7 +219,42 @@ void setIPHeader(struct sr_ip_hdr *hdr, uint32_t dst, uint32_t src, uint16_t typ
   hdr->ip_dst = dst;
   hdr->ip_p = type;
   hdr->ip_sum = 0;
-  hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+  hdr->ip_ttl = 100;
+  hdr->ip_sum = cksum(hdr, sizeof(sr_ip_hdr_t));
+}
+
+  //uint16_t icmp_sum;
+void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code) {
+    icmp_hdr->icmp_type = icmp_type;
+    icmp_hdr->icmp_code = icmp_code;
+    icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
+}
+
+void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code) {
+    icmp_hdr->icmp_type = icmp_type;
+    icmp_hdr->icmp_code = icmp_code;
+    icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
+}
+void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 
+        struct sr_ip_hdr *ip_hdr, uint8_t icmp_type, uint8_t icmp_code) {
+    struct icmp_packet *icmp_pack = malloc(sizeof(struct icmp_packet));
+    unsigned long icmp_len = sizeof(struct icmp_packet);
+    setEthHeader(icmp_pack->eth_hdr, target_interface->ip, source_if->addr, ethertype_ip);
+    setIPHeader(icmp_pack->ip_hdr, ip_hdr->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
+    setICMPHeader3(icmp_pack->icmp_hdr, icmp_type, icmp_code);
+
+    sr_send_icmp3(sr, icmp_pack, icmp_len);
+}
+
+void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 
+        struct sr_ip_hdr *ip_hdr, uint8_t icmp_code) {
+    struct icmp_packet3 *icmp_pack3 = malloc(sizeof(struct icmp_packet3));
+    unsigned long icmp_len3 = sizeof(struct icmp_packet3);
+    setEthHeader(icmp_pack3->eth_hdr, target_interface->ip, source_if->addr, ethertype_ip);
+    setIPHeader(icmp_pack3->ip_hdr, ip_hdr->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
+    setICMPHeader3(icmp_pack3->icmp_hdr, 3, icmp_code);
+
+    sr_send_icmp3(sr, icmp_pack3, icmp_len3);
 }
 
 struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip) {
@@ -251,20 +286,20 @@ int check_length(uint8_t *buf, unsigned int len){
     int min = sizeof(sr_ethernet_hdr_t);
     uint16_t type = ethertype(buf);
 
-    if (length < min) return 1;
+    if (len < min) return 1;
 
     if (type == ethertype_ip) { //if its an ip packet
         min += sizeof(sr_ip_hdr_t);
-        if (length < min) return 1;
+        if (len < min) return 1;
 
         if (ip_protocol(buf + sizeof(sr_ethernet_hdr_t)) == ip_protocol_icmp) { //checking if its a ICMP ping
             min += sizeof(sr_icmp_hdr_t);
-            if (length < min) return 1;
+            if (len < min) return 1;
         }
     }
     else if (type == ethertype_arp) { //if its an arp packet
         min += sizeof(sr_arp_hdr_t);
-        if (length < min) return 1;
+        if (len < min) return 1;
     }
     else return 1; //if its an unhandled packet
     return 0;

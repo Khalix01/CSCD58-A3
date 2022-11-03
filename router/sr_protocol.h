@@ -184,6 +184,29 @@ struct sr_arp_hdr
 } __attribute__ ((packed)) ;
 typedef struct sr_arp_hdr sr_arp_hdr_t;
 
+struct icmp_packet {
+    struct sr_ip_hdr* ip_hdr;
+    struct sr_icmp_hdr* icmp_hdr;
+    struct sr_ethernet_hdr* eth_hdr;
+    uint8_t data[ICMP_DATA_SIZE];
+} __attribute__ ((packed));
+typedef struct sr_icmp_packet sr_icmp_packet_t;
+
+struct icmp_packet3 {
+    struct sr_ip_hdr* ip_hdr;
+    struct sr_icmp_t3_hdr* icmp_hdr;
+    struct sr_ethernet_hdr* eth_hdr;
+    uint8_t data[ICMP_DATA_SIZE];
+} __attribute__ ((packed));
+typedef struct sr_icmp_packet3 sr_icmp_packet_t3;
+
+struct arp_packet {
+    struct sr_arp_hdr* arp_hdr;
+    struct sr_ethernet_hdr* eth_hdr;
+    uint8_t data[ICMP_DATA_SIZE];
+} __attribute__ ((packed));
+typedef struct sr_icmp_packet sr_icmp_packet_t;
+
 #define sr_IFACE_NAMELEN 32
 
 #endif /* -- SR_PROTOCOL_H -- */

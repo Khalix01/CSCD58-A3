@@ -10,17 +10,32 @@
 #include "sr_router.h"
 #include "sr_if.h"
 #include "sr_protocol.h"
-void handle_arpreq( struct sr_instance *sr, struct sr_arpreq *req)
+
+void handle_arpreq( struct sr_instance *sr, struct sr_arpreq *req);
+void setEthHeader(struct sr_ethernet_hdr *hcr, uint8_t *dst, uint8_t *src, uint16_t type);
 
 
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     if (difftime(time(NULL), req->sent)>1.0){    
         if (req->times_sent >= 5) {
-                // TODO send ICMP unreachable(type 3, code 3) to source of req
+            // TODO send ICMP unreachable(type 3, code 1) to source of req
+            struct sr_icmp_t3_hdr *icmp_hdr = malloc(sizeof(struct sr_icmp_t3_hdr));
+            icmp_hdr -> icmp_type = (uint8_t) 3;
+            icmp_hdr -> icmp_code = (uint8_t) 1;
+            icmp_hdr -> icmp_sum = cksum(icmp_hdr, sizeof(icmp_hdr)-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
+            struct icmp_packet3 *icmp_pack3 = malloc(sizeof(struct icmp_packet3));
+            icmp_pack3->icmp_hdr = icmp_hdr;
+            setEthHeader(icmp_pack3->eth_hdr, req->ip, ?, ethertype(ethertype_arp)); //not sure what to put for source
+            unsigned long icmp_len3 = sizeof(struct icmp_packet3);
+            sr_send_icmp3(sr, icmp_pack3, icmp_len3);
+
             sr_arpreq_destroy(&(sr->cache), req);
         }
         else {
-                // TODO send ARP request
+            //Send packet
+            for (struct sr_packet *pkt=req->packets; pkt != NULL; pkt=pkt->next) {
+                sr_send_packet(sr, pkt->buf, pkt->len, pkt->iface);
+            }
             req->sent = time(NULL);
             req->times_sent++;
         }
@@ -263,4 +278,10 @@ void *sr_arpcache_timeout(void *sr_ptr) {
     }
     
     return NULL;
+}
+
+void setEthHeader(struct sr_ethernet_hdr *hdr, uint8_t *dst, uint8_t *src, uint16_t type) {
+  memcpy(hdr->ether_dhost, dst, ETHER_ADDR_LEN);
+  memcpy(hdr->ether_shost, src, ETHER_ADDR_LEN);
+  hdr->ether_type = htons(type);
 }

@@ -559,6 +559,30 @@ sr_ether_addrs_match_interface( struct sr_instance* sr, /* borrowed */
  *
  *---------------------------------------------------------------------------*/
 
+int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len) {
+    if(write(sr->sockfd, icmp, len) < len ){
+        fprintf(stderr, "Error writing packet\n");
+        free(icmp);
+        return -1;
+    }
+
+    free(icmp);
+
+    return 0;
+}
+
+int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len) {
+    if(write(sr->sockfd, arp, len) < len ){
+        fprintf(stderr, "Error writing packet\n");
+        free(arp);
+        return -1;
+    }
+
+    free(arp);
+
+    return 0;
+}
+
 int sr_send_packet(struct sr_instance* sr /* borrowed */,
                          uint8_t* buf /* borrowed */ ,
                          unsigned int len,
