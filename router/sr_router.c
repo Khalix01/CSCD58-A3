@@ -26,7 +26,7 @@ int check_length(uint8_t *buf,unsigned int len);
 struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip);
 struct sr_if* searchSubnet(struct sr_instance* sr, uint32_t ip);
 void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hdr *arp_hdr, unsigned short type);
-void setEthHeader(struct sr_ethernet_hdr *hcr, uint8_t *dst, uint8_t *src, uint16_t type);
+void setEthHeader(struct sr_ethernet_hdr *hcr, unsigned char *dst, unsigned char *src, uint16_t type);
 void setIPHeader(struct sr_ip_hdr *hdr, uint32_t dst, uint32_t src, uint16_t type);
 
 /*---------------------------------------------------------------------
@@ -97,13 +97,11 @@ void sr_handlepacket(struct sr_instance* sr,
     uint16_t chksum, ethProtocol = ethertype(packet); //get protocol
     struct sr_if *source_if = sr_get_interface(sr, interface);
 
-    printf("1");
-
+    printf("1\n");
+    print_hdrs(packet, len);
     fflush(stdout);
     
     if (ethProtocol == ethertype_arp) { //If ARP
-        print_hdrs(packet, len);
-        
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(frame);
         struct sr_if *target_interface=searchIP(sr,arp_hdr->ar_tip);
@@ -113,19 +111,19 @@ void sr_handlepacket(struct sr_instance* sr,
                 //send a reply
                 
                 struct arp_packet *sr_arp_send_hdr = (struct arp_packet *)malloc(sizeof(struct arp_packet));
-                printf("ARP request1");
+                sr_arp_send_hdr -> arp_hdr = (struct sr_arp_hdr *)malloc(sizeof(struct sr_arp_hdr));
+                sr_arp_send_hdr -> eth_hdr = (struct sr_eth_hdr *)malloc(sizeof(sr_ethernet_hdr_t));
                 fflush(stdout);
                 setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arp_op_reply);
-                printf("ARP request2");
                 fflush(stdout);
-                setEthHeader(sr_arp_send_hdr->eth_hdr, arp_hdr->ar_sha, target_interface->addr, ethHeader->ether_type); //ethertype(ethHeader->ether_type)
-                printf("ARP request3");
+                setEthHeader(sr_arp_send_hdr->eth_hdr, arp_hdr->ar_sha, target_interface->addr, htons(ethHeader->ether_type)); //ethertype(ethHeader->ether_type)
                 fflush(stdout);
 
-                print_hdr_arp(sr_arp_send_hdr->arp_hdr);
                 print_hdr_eth(sr_arp_send_hdr->eth_hdr);
+                print_hdr_arp(sr_arp_send_hdr->arp_hdr);
+                
 
-                sr_send_arp(sr, sr_arp_send_hdr, len); //Not sure about this
+                sr_send_arp(sr, sr_arp_send_hdr, len, target_interface->name); //Not sure about this
                 //free(sr_arp_send_hdr);
             }
             else if (ntohs(arp_hdr->ar_op) == arp_op_reply) {//if it is a reply
@@ -231,7 +229,7 @@ void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hd
 
     printf("TYPE: %d\n", type);
     fflush(stdout);
-    hdr->ar_op = type;
+    hdr->ar_op = htons(type);
     memcpy(hdr->ar_sha, source->addr, ETHER_ADDR_LEN);
     hdr->ar_sip = source->ip;
     memcpy(hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);

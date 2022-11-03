@@ -205,7 +205,6 @@ typedef struct sr_icmp_packet3 sr_icmp_packet_t3;
 struct arp_packet {
     struct sr_arp_hdr* arp_hdr;
     struct sr_ethernet_hdr* eth_hdr;
-    uint8_t data[ICMP_DATA_SIZE];
 } __attribute__ ((packed));
 typedef struct sr_icmp_packet sr_icmp_packet_t;
 

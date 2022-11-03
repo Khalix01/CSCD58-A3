@@ -550,15 +550,7 @@ sr_ether_addrs_match_interface( struct sr_instance* sr, /* borrowed */
 
 } /* -- sr_ether_addrs_match_interface -- */
 
-/*-----------------------------------------------------------------------------
- * Method: sr_send_packet(..)
- * Scope: Global
- *
- * Send a packet (ethernet header included!) of length 'len' to the server
- * to be injected onto the wire.
- *
- *---------------------------------------------------------------------------*/
-
+//send ICMP packet(Not including type 3)
 int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len) {
     if(write(sr->sockfd, icmp, len) < len ){
         fprintf(stderr, "Error writing packet\n");
@@ -571,6 +563,7 @@ int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int 
     return 0;
 }
 
+//send type 3 ICMP packet
 int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len) {
     if(write(sr->sockfd, icmp, len) < len ){
         fprintf(stderr, "Error writing packet\n");
@@ -583,18 +576,34 @@ int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned in
     return 0;
 }
 
-int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len) {
-    if(write(sr->sockfd, arp, len) < len ){
-        fprintf(stderr, "Error writing packet\n");
-        free(arp);
-        return -1;
-    }
+//send ARP packet
+int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len, const char* iface) {
+    
+    assert(sr);
+    assert(arp);
+    assert(len);
+    assert(iface);
+    
+    uint8_t buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+    memcpy(buf, arp->eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr), arp->arp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+
+    int res = sr_send_packet(sr, buf, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr), iface);
 
     free(arp);
+    free(buf);
 
-    return 0;
+    return res;
 }
 
+/*-----------------------------------------------------------------------------
+ * Method: sr_send_packet(..)
+ * Scope: Global
+ *
+ * Send a packet (ethernet header included!) of length 'len' to the server
+ * to be injected onto the wire.
+ *
+ *---------------------------------------------------------------------------*/
 int sr_send_packet(struct sr_instance* sr /* borrowed */,
                          uint8_t* buf /* borrowed */ ,
                          unsigned int len,
