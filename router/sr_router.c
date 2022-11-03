@@ -96,6 +96,8 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *)packet; //extract headers
     uint16_t chksum, ethProtocol = ethertype(packet); //get protocol
     struct sr_if *source_if = sr_get_interface(sr, interface);
+
+    print_hdrs(packet, len);
     
     if (ethProtocol == ethertype_arp) { //If ARP
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
@@ -227,6 +229,7 @@ void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr* rec_hdr, uint32_t dst,
 void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) {
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
+    icmp_hdr->icmp_sum = 0;
     icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 }
 
@@ -249,9 +252,12 @@ void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, stru
     setICMPHeader(icmp_pack->icmp_hdr, icmp_type, icmp_code, len);
 
     //Issues with sending, hence we print it.
+    printf("--------------Their packet ^^^^--------------");
+    fflush(stdout);
     print_hdr_eth(icmp_pack->eth_hdr);
     print_hdr_ip(icmp_pack->ip_hdr);
     print_hdr_icmp(icmp_pack->icmp_hdr);
+    printf("--------------Ourr packet ^^^^--------------");
 
     fflush(stdout);
 
@@ -265,7 +271,7 @@ void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, str
     icmp_pack3->eth_hdr = (struct sr_ethernet_hdr *)malloc(sizeof(struct sr_ethernet_hdr));
     icmp_pack3->ip_hdr = (struct sr_ip_hdr *)malloc(sizeof(struct sr_ip_hdr));
     icmp_pack3->icmp_hdr = (struct sr_icmp_t3_hdr *)malloc(sizeof(struct sr_icmp_t3_hdr));
-    unsigned long icmp_len3 = sizeof(struct icmp_packet3);
+    unsigned long icmp_len3 = sizeof(struct sr_icmp_t3_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr);
     
     setEthHeader(icmp_pack3->eth_hdr, ethHdr->ether_shost, source_if->addr, ethertype_ip);
     setIPHeader(icmp_pack3->ip_hdr, ip_hdr, ip_hdr->ip_src, source_if->ip); //->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
