@@ -149,7 +149,7 @@ void sr_handlepacket(struct sr_instance* sr,
                 if (icmp_hdr->icmp_type != (uint8_t) 8) {
                     fprintf(stderr, "Not a ICMP echo\n");
                     return;
-                }
+                }//not sure what to put for source
                 
                 chksum = icmp_hdr->icmp_sum;
                 icmp_hdr->icmp_sum = 0;
@@ -173,7 +173,7 @@ void sr_handlepacket(struct sr_instance* sr,
                 sendICMPHeader(sr, target_interface, source_if, ip_hdr, 11, 0);
             } else{ //else forwad the packet
                 
-                char *target_interface = searchSubnet(sr, ip_hdr->ip_dst); //USE LPM to find subnet
+                struct sr_if* target_interface = searchSubnet(sr, ip_hdr->ip_dst); //USE LPM to find subnet
 
                 if (target_interface !=NULL) { //it is a handled interface                    
                     
