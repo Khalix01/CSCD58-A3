@@ -557,10 +557,13 @@ int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int 
     assert(len);
     assert(iface);
 
+    // memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->icmp_hdr, sizeof(struct sr_ip_hdr));
+    // memcpy(buf + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp->icmp_hdr, sizeof(struct sr_icmp_hdr));
+
     uint8_t *buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
     memcpy(buf, icmp->eth_hdr, sizeof(struct sr_ethernet_hdr));
-    memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-    memcpy(buf + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->ip_hdr, sizeof(struct sr_ip_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp->icmp_hdr, sizeof(struct sr_icmp_hdr));
 
     int res = sr_send_packet(sr, buf, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr), iface);
 
@@ -579,11 +582,16 @@ int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned in
     assert(icmp);
     assert(len);
     assert(iface);
-
+    printf("should work 7");
+    fflush(stdout);
     uint8_t *buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
+    printf("should work 8");
+    fflush(stdout);
     memcpy(buf, icmp->eth_hdr, sizeof(struct sr_ethernet_hdr));
-    memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
-    memcpy(buf + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr));
+    printf("should work 9");
+    fflush(stdout);
+    memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->ip_hdr, sizeof(struct sr_ip_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp->icmp_hdr, sizeof(struct sr_icmp_t3_hdr));
 
     int res = sr_send_packet(sr, buf, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_t3_hdr), iface);
 

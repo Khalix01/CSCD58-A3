@@ -204,7 +204,7 @@ struct arp_packet {
     struct sr_arp_hdr* arp_hdr;
     struct sr_ethernet_hdr* eth_hdr;
 } __attribute__ ((packed));
-typedef struct sr_icmp_packet sr_icmp_packet_t;
+typedef struct arp_packet arp_packet_t;
 
 #define sr_IFACE_NAMELEN 32
 

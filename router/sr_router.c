@@ -27,7 +27,7 @@ struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip);
 struct sr_if* searchSubnet(struct sr_instance* sr, uint32_t ip);
 void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hdr *arp_hdr, unsigned short type);
 void setEthHeader(struct sr_ethernet_hdr *hcr, unsigned char *dst, unsigned char *src, uint16_t type);
-void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr *rec_hdr); 
+void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr *rec_hdr, uint32_t dst, uint32_t src); 
 
 /*---------------------------------------------------------------------
  * Method: sr_init(void)
@@ -184,18 +184,22 @@ void sr_handlepacket(struct sr_instance* sr,
                 fflush(stdout);
             }
         } else { //if not, forward the packet
+            printf("Should 1");
+            fflush(stdout);
             ip_hdr->ip_ttl--; // decraease TTL and recompute checksum
             ip_hdr->ip_sum = 0;
             ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
-
             if (ip_hdr->ip_ttl < 0) {//if TTL has run out
                 sendICMPHeader(sr, target_interface, source_if, ip_hdr, 11, 0, interface, ethHeader, len);
             } else{ //else forwad the packet
-                
+                printf("Should 2");
+                fflush(stdout);
                 struct sr_if* target_interface = searchSubnet(sr, ip_hdr->ip_dst); //USE LPM to find subnet
-
+                printf("Should 4");
+                fflush(stdout);
                 if (target_interface !=NULL) { //it is a handled interface                    
-                    
+                    printf("Should 3");
+                    fflush(stdout);
                     struct sr_arpentry *entry = sr_arpcache_lookup(&(sr->cache), ntohl(ip_hdr->ip_dst)); //find corrosponding ARP entry
                     if (entry) { //if found forward the packet
                         setEthHeader(ethHeader,entry->mac,target_interface->addr,ethHeader->ether_type);
@@ -210,6 +214,8 @@ void sr_handlepacket(struct sr_instance* sr,
                 }
                 else {
                     //send ICMP type 3 code 0 since its not a handled interface
+                    printf("Should 5");
+                    fflush(stdout);
                     sendICMPHeader3(sr, target_interface, source_if, ip_hdr, 0, interface, ethHeader, len);
                 }
             }
@@ -242,38 +248,37 @@ void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hd
     hdr->ar_tip = arp_hdr->ar_sip;
 }
 
-void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr* rec_hdr) {
-  memcpy(hdr, rec_hdr, sizeof(struct sr_ip_hdr));
-  hdr->ip_src = rec_hdr->ip_src;
-  hdr->ip_dst = rec_hdr->ip_dst;
-  hdr->ip_sum = 0;
-  hdr->ip_ttl = 100;
-  hdr->ip_sum = cksum(hdr, sizeof(sr_ip_hdr_t));
+void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr* rec_hdr, uint32_t dst, uint32_t src) {
+    memcpy(hdr, rec_hdr, sizeof(struct sr_ip_hdr));
+    hdr->ip_src = src;
+    hdr->ip_dst = dst;
+    hdr->ip_sum = 0;
+    hdr->ip_ttl = 100;
+    hdr->ip_sum = cksum(hdr, sizeof(sr_ip_hdr_t));
 }
 
-  //uint16_t icmp_sum;
 void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) {
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
     icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 }
 
-void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code) {
+void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) {
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
     icmp_hdr->icmp_sum = 0;
-    icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_t3_hdr_t));
+    icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 }
 
 void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 
-        struct sr_ip_hdr *ip_hdr, uint8_t icmp_type, uint8_t icmp_code, const char* interface, struct sr_ethernet_hdr* ethHdr, int len) {
-    struct icmp_packet *icmp_pack = malloc(sizeof(struct icmp_packet));
-    icmp_pack->eth_hdr = malloc(sizeof(struct sr_ethernet_hdr));
-    icmp_pack->ip_hdr = malloc(sizeof(struct sr_ip_hdr));
-    icmp_pack->icmp_hdr = malloc(sizeof(struct sr_icmp_hdr));
+        struct sr_ip_hdr *ip_hdr, uint8_t icmp_type, uint8_t icmp_code, const char* interface, struct sr_ethernet_hdr* ethHdr, unsigned int len) {
+    struct icmp_packet *icmp_pack = (struct icmp_packet *)malloc(sizeof(struct icmp_packet));
+    icmp_pack->eth_hdr = (struct sr_ethernet_hdr *)malloc(sizeof(struct sr_ethernet_hdr));
+    icmp_pack->ip_hdr = (struct sr_ip_hdr *)malloc(sizeof(struct sr_ip_hdr));
+    icmp_pack->icmp_hdr = (struct sr_icmp_hdr *)malloc(sizeof(struct sr_icmp_hdr));
     unsigned long icmp_len = sizeof(struct sr_icmp_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_ethernet_hdr);
-    setEthHeader(icmp_pack->eth_hdr, ethHdr->ether_shost, ethHdr->ether_dhost, ethHdr->ether_type);
-    setIPHeader(icmp_pack->ip_hdr, ip_hdr);
+    setEthHeader(icmp_pack->eth_hdr, ethHdr->ether_shost, source_if->addr, ethHdr->ether_type);
+    setIPHeader(icmp_pack->ip_hdr, ip_hdr, ip_hdr->ip_src, ip_hdr->ip_dst);
     setICMPHeader(icmp_pack->icmp_hdr, icmp_type, icmp_code, len);
 
     print_hdr_eth(icmp_pack->eth_hdr);
@@ -287,15 +292,21 @@ void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, stru
 
 void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 
         struct sr_ip_hdr *ip_hdr, uint8_t icmp_code, const char* interface, struct sr_ethernet_hdr* ethHdr, int len) {
-    struct icmp_packet3 *icmp_pack3 = malloc(sizeof(struct icmp_packet3));
-    icmp_pack3->eth_hdr = malloc(sizeof(struct sr_ethernet_hdr));
-    icmp_pack3->ip_hdr = malloc(sizeof(struct sr_ip_hdr));
-    icmp_pack3->icmp_hdr = malloc(sizeof(struct sr_icmp_hdr));
+    struct icmp_packet3 *icmp_pack3 = (struct icmp_packet3 *)malloc(sizeof(struct icmp_packet3));
+    icmp_pack3->eth_hdr = (struct sr_ethernet_hdr *)malloc(sizeof(struct sr_ethernet_hdr));
+    icmp_pack3->ip_hdr = (struct sr_ip_hdr *)malloc(sizeof(struct sr_ip_hdr));
+    icmp_pack3->icmp_hdr = (struct sr_icmp_t3_hdr *)malloc(sizeof(struct sr_icmp_t3_hdr));
     unsigned long icmp_len3 = sizeof(struct icmp_packet3);
-    setEthHeader(icmp_pack3->eth_hdr, ethHdr->ether_shost, ethHdr->ether_dhost, ethertype_ip);
-    setIPHeader(icmp_pack3->ip_hdr, ip_hdr); //->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
-    setICMPHeader3(icmp_pack3->icmp_hdr, 3, icmp_code);
+    
+    setEthHeader(icmp_pack3->eth_hdr, ethHdr->ether_shost, source_if->addr, ethertype_ip);
+    setIPHeader(icmp_pack3->ip_hdr, ip_hdr, ip_hdr->ip_src, source_if->ip); //->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
+    setICMPHeader3(icmp_pack3->icmp_hdr, 3, icmp_code, len);
 
+    print_hdr_eth(icmp_pack3->eth_hdr);
+    print_hdr_ip(icmp_pack3->ip_hdr);
+    print_hdr_icmp(icmp_pack3->icmp_hdr);
+    
+    fflush(stdout);
     sr_send_icmp3(sr, icmp_pack3, icmp_len3, interface);
 }
 
