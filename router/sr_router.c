@@ -102,12 +102,11 @@ void sr_handlepacket(struct sr_instance* sr,
         struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(frame);
         struct sr_if *target_interface=searchIP(sr,arp_hdr->ar_tip);
 
-        if(target_interface!=NULL){ //if its an handels interface
-            //TODO: Check IP address is one of of router's IP addresses
+        if(target_interface!=NULL){ /*if its an handels interface */
             if (ntohs(arp_hdr->ar_op) == arp_op_request) { //if its a request
                 //send a reply
                 struct arp_packet *sr_arp_send_hdr;
-                setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arptype(arp_op_reply));
+                setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arp_op_reply);
                 setEthHeader(sr_arp_send_hdr->arp_hdr, arp_hdr->ar_sip, target_interface, ethertype(ethHeader->ether_type));
                 
                 sr_send_arp(sr, sr_arp_send_hdr, len); //Not sure about this
@@ -241,9 +240,9 @@ void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, stru
     unsigned long icmp_len = sizeof(struct icmp_packet);
     setEthHeader(icmp_pack->eth_hdr, target_interface->ip, source_if->addr, ethertype_ip);
     setIPHeader(icmp_pack->ip_hdr, ip_hdr->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
-    setICMPHeader3(icmp_pack->icmp_hdr, icmp_type, icmp_code);
+    setICMPHeader(icmp_pack->icmp_hdr, icmp_type, icmp_code);
 
-    sr_send_icmp3(sr, icmp_pack, icmp_len);
+    sr_send_icmp(sr, icmp_pack, icmp_len);
 }
 
 void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 

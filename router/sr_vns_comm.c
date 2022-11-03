@@ -571,6 +571,18 @@ int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int 
     return 0;
 }
 
+int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len) {
+    if(write(sr->sockfd, icmp, len) < len ){
+        fprintf(stderr, "Error writing packet\n");
+        free(icmp);
+        return -1;
+    }
+
+    free(icmp);
+
+    return 0;
+}
+
 int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len) {
     if(write(sr->sockfd, arp, len) < len ){
         fprintf(stderr, "Error writing packet\n");

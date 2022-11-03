@@ -12,13 +12,11 @@
 #include "sr_protocol.h"
 
 void handle_arpreq( struct sr_instance *sr, struct sr_arpreq *req);
-void setEthHeader(struct sr_ethernet_hdr *hcr, uint8_t *dst, uint8_t *src, uint16_t type);
-
 
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     if (difftime(time(NULL), req->sent)>1.0){    
         if (req->times_sent >= 5) {
-            // TODO send ICMP unreachable(type 3, code 1) to source of req
+            /* send ICMP unreachable(type 3, code 1) to source of req */
             struct sr_icmp_t3_hdr *icmp_hdr = malloc(sizeof(struct sr_icmp_t3_hdr));
             icmp_hdr -> icmp_type = (uint8_t) 3;
             icmp_hdr -> icmp_code = (uint8_t) 1;
@@ -32,7 +30,6 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             sr_arpreq_destroy(&(sr->cache), req);
         }
         else {
-            //Send packet
             for (struct sr_packet *pkt=req->packets; pkt != NULL; pkt=pkt->next) {
                 sr_send_packet(sr, pkt->buf, pkt->len, pkt->iface);
             }
@@ -278,10 +275,4 @@ void *sr_arpcache_timeout(void *sr_ptr) {
     }
     
     return NULL;
-}
-
-void setEthHeader(struct sr_ethernet_hdr *hdr, uint8_t *dst, uint8_t *src, uint16_t type) {
-  memcpy(hdr->ether_dhost, dst, ETHER_ADDR_LEN);
-  memcpy(hdr->ether_shost, src, ETHER_ADDR_LEN);
-  hdr->ether_type = htons(type);
 }
