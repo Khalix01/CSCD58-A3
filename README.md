@@ -1,6 +1,6 @@
 # CSCD58-A3
 
-Names of Team members & Student Numbers: Krutik, Kourosh Jaberi 1005947362
+Names of Team members & Student Numbers: Krutik Tejalkumar Shah 1006213526, Kourosh Jaberi 1005947362
 
 Please run our code without the -anis flag, in order to avoid errors raised by comments with // and please ignore the other warnings with implicit castings/declarations
 
@@ -29,7 +29,7 @@ void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, stru
 //Set ICMP headers for type3 responses, given type, code and length of received message - Author: Kourosh
 void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) 
 
-//Set ICMP headers for type3 responses, given type, code and length of received message - Author: Kourosh
+//Set ICMP headers responses, given type, code and length of received message - Author: Kourosh
 void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len)
 
 /* Set IP Header given a pointer to the IP Header, pointer to received IP header, and values of destination and src - Author: Krutik*/ 

@@ -227,7 +227,7 @@ void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr* rec_hdr, uint32_t dst,
     hdr->ip_sum = cksum(hdr, sizeof(sr_ip_hdr_t));
 }
 
-//Set ICMP headers for type3 responses, given type, code and length of received message
+//Set ICMP headers responses, given type, code and length of received message
 void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) {
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
@@ -240,6 +240,8 @@ void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t 
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
     icmp_hdr->icmp_sum = 0;
+    icmp_hdr->next_mtu = 0;
+    icmp_hdr->unused = 0;
     icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 }
 
