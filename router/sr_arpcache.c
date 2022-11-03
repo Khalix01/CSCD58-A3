@@ -25,7 +25,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             icmp_pack3->icmp_hdr = icmp_hdr;
             setEthHeader(icmp_pack3->eth_hdr, req->ip, sr_get_interface(sr, req->packets->iface), ethertype(ethertype_arp));
             unsigned long icmp_len3 = sizeof(struct icmp_packet3);
-            sr_send_icmp3(sr, icmp_pack3, icmp_len3);
+            sr_send_icmp3(sr, icmp_pack3, icmp_len3, req->packets->iface);
 
             sr_arpreq_destroy(&(sr->cache), req);
         }

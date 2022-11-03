@@ -64,8 +64,8 @@ int sr_send_packet(struct sr_instance* , uint8_t* , unsigned int , const char*);
 int sr_connect_to_server(struct sr_instance* ,unsigned short , char* );
 int sr_read_from_server(struct sr_instance* );
 int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len, const char* iface);
-int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len);
-int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len);
+int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len, const char* iface);
+int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len, const char* iface);
 
 /* -- sr_router.c -- */
 void sr_init(struct sr_instance* );

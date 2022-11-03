@@ -551,29 +551,42 @@ sr_ether_addrs_match_interface( struct sr_instance* sr, /* borrowed */
 } /* -- sr_ether_addrs_match_interface -- */
 
 //send ICMP packet(Not including type 3)
-int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len) {
-    if(write(sr->sockfd, icmp, len) < len ){
-        fprintf(stderr, "Error writing packet\n");
-        free(icmp);
-        return -1;
-    }
+int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len, const char* iface) {
+    assert(sr);
+    assert(icmp);
+    assert(len);
+    assert(iface);
+
+    uint8_t *buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+    memcpy(buf, icmp->eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr));
+
+    int res = sr_send_packet(sr, buf, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_ip_hdr) + sizeof(struct sr_icmp_hdr), iface);
 
     free(icmp);
+    free(buf);
 
-    return 0;
+    return res;
 }
 
 //send type 3 ICMP packet
-int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len) {
-    if(write(sr->sockfd, icmp, len) < len ){
-        fprintf(stderr, "Error writing packet\n");
-        free(icmp);
-        return -1;
-    }
+int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len, const char* iface) {
+    assert(sr);
+    assert(icmp);
+    assert(len);
+    assert(iface);
+
+    uint8_t *buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmp_t3_hdr));
+    memcpy(buf, icmp->eth_hdr, sizeof(struct sr_ethernet_hdr));
+    memcpy(buf + sizeof(struct sr_ethernet_hdr), icmp->icmp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmp_t3_hdr));
+
+    int res = sr_send_packet(sr, buf, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_icmp_t3_hdr), iface);
 
     free(icmp);
+    free(buf);
 
-    return 0;
+    return res;
 }
 
 //send ARP packet
@@ -584,7 +597,7 @@ int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len
     assert(len);
     assert(iface);
     
-    uint8_t buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
+    uint8_t *buf = malloc(sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
     memcpy(buf, arp->eth_hdr, sizeof(struct sr_ethernet_hdr));
     memcpy(buf + sizeof(struct sr_ethernet_hdr), arp->arp_hdr, sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr));
 
