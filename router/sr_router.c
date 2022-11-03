@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
 
 
 #include "sr_if.h"
@@ -226,6 +227,7 @@ void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr* rec_hdr, uint32_t dst,
     hdr->ip_sum = cksum(hdr, sizeof(sr_ip_hdr_t));
 }
 
+//Set ICMP headers for type3 responses, given type, code and length of received message
 void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) {
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
@@ -233,6 +235,7 @@ void setICMPHeader(struct sr_icmp_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp
     icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 }
 
+//Set ICMP headers for type3 responses, given type, code and length of received message
 void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t icmp_code, unsigned int len) {
     icmp_hdr->icmp_type = icmp_type;
     icmp_hdr->icmp_code = icmp_code;
@@ -240,6 +243,7 @@ void setICMPHeader3(struct sr_icmp_t3_hdr *icmp_hdr, uint8_t icmp_type, uint8_t 
     icmp_hdr->icmp_sum = cksum(icmp_hdr, len-sizeof(sr_ethernet_hdr_t)-sizeof(sr_ip_hdr_t));
 }
 
+//Prints and sends ICMP headers, given sr, target interface, source interface, received IP header, icmp_code, the interface, the ethernet header received, and the length
 void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 
         struct sr_ip_hdr *ip_hdr, uint8_t icmp_type, uint8_t icmp_code, const char* interface, struct sr_ethernet_hdr* ethHdr, unsigned int len) {
     struct icmp_packet *icmp_pack = (struct icmp_packet *)malloc(sizeof(struct icmp_packet));
@@ -265,6 +269,7 @@ void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, stru
     sr_send_icmp(sr, icmp_pack, icmp_len, interface);
 }
 
+//Prints and sends ICMP headers of type3, given sr, target interface, source interface, received IP header, icmp_code, the interface, the ethernet header received, and the length
 void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, struct sr_if* source_if, 
         struct sr_ip_hdr *ip_hdr, uint8_t icmp_code, const char* interface, struct sr_ethernet_hdr* ethHdr, int len) {
     struct icmp_packet3 *icmp_pack3 = (struct icmp_packet3 *)malloc(sizeof(struct icmp_packet3));
@@ -288,6 +293,7 @@ void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, str
     sr_send_icmp3(sr, icmp_pack3, icmp_len3, interface);
 }
 
+//Search IP in interface list of sr
 struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip) {
     for (struct sr_if *interface = sr->if_list; interface!=NULL; interface = interface->next){
         if (interface->ip == ip)return interface;    
@@ -295,6 +301,7 @@ struct sr_if* searchIP(struct sr_instance* sr, uint32_t ip) {
     return NULL;
 }
 
+//search given ip address in subnet of sr
 struct sr_if* searchSubnet(struct sr_instance* sr, uint32_t ip) {    
     struct sr_rt *match = NULL;
     int longest_mask = 0;

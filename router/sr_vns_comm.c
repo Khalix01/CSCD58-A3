@@ -550,7 +550,7 @@ sr_ether_addrs_match_interface( struct sr_instance* sr, /* borrowed */
 
 } /* -- sr_ether_addrs_match_interface -- */
 
-//send ICMP packet(Not including type 3)
+//send ICMP packet(Not including type 3) given sr instance, type3 ICMP packet, length of said packet, and the iface derived from original message
 int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int len, const char* iface) {
     assert(sr);
     assert(icmp);
@@ -575,7 +575,7 @@ int sr_send_icmp(struct sr_instance* sr, struct icmp_packet* icmp, unsigned int 
     return res;
 }
 
-//send type 3 ICMP packet
+//send type 3 ICMP packet given sr instance, type3 ICMP packet, length of said packet, and the iface derived from original message
 int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned int len, const char* iface) {
     assert(sr);
     assert(icmp);
@@ -601,7 +601,7 @@ int sr_send_icmp3(struct sr_instance* sr, struct icmp_packet3* icmp, unsigned in
     return res;
 }
 
-//send ARP packet
+//send ARP packet given sr instance, arp packet, length of said packet, and the iface derived from original message
 int sr_send_arp(struct sr_instance* sr, struct arp_packet* arp, unsigned int len, const char* iface) {
     
     assert(sr);
