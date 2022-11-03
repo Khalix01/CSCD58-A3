@@ -96,8 +96,14 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *)packet; //extract headers
     uint16_t chksum, ethProtocol = ethertype(packet); //get protocol
     struct sr_if *source_if = sr_get_interface(sr, interface);
+
+    printf("1");
+
+    fflush(stdout);
     
     if (ethProtocol == ethertype_arp) { //If ARP
+        print_hdrs(packet, len);
+        
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_arp_hdr *arp_hdr = (struct sr_arp_hdr *)(frame);
         struct sr_if *target_interface=searchIP(sr,arp_hdr->ar_tip);
@@ -105,18 +111,30 @@ void sr_handlepacket(struct sr_instance* sr,
         if(target_interface!=NULL){ /*if its an handels interface */
             if (ntohs(arp_hdr->ar_op) == arp_op_request) { //if its a request
                 //send a reply
-                struct arp_packet *sr_arp_send_hdr;
-                setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arp_op_reply);
-                setEthHeader(sr_arp_send_hdr->arp_hdr, arp_hdr->ar_sip, target_interface, ethertype(ethHeader->ether_type));
                 
+                struct arp_packet *sr_arp_send_hdr = (struct arp_packet *)malloc(sizeof(struct arp_packet));
+                printf("ARP request1");
+                fflush(stdout);
+                setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arp_op_reply);
+                printf("ARP request2");
+                fflush(stdout);
+                setEthHeader(sr_arp_send_hdr->eth_hdr, arp_hdr->ar_sha, target_interface->addr, ethHeader->ether_type); //ethertype(ethHeader->ether_type)
+                printf("ARP request3");
+                fflush(stdout);
+
+                print_hdr_arp(sr_arp_send_hdr->arp_hdr);
+                print_hdr_eth(sr_arp_send_hdr->eth_hdr);
+
                 sr_send_arp(sr, sr_arp_send_hdr, len); //Not sure about this
+                //free(sr_arp_send_hdr);
             }
             else if (ntohs(arp_hdr->ar_op) == arp_op_reply) {//if it is a reply
-
+                printf("ARP reply");
+                fflush(stdout);
                 struct sr_arpreq *arpreq = sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, ntohl(arp_hdr->ar_sip));// insert into cache
                 if (arpreq) {//send all packets on the req->packets linked list
                     for (struct sr_packet *pkt=arpreq->packets; pkt != NULL; pkt=pkt->next) {
-                        setEthHeader((struct sr_ethernet_hdr *)pkt->buf, arp_hdr->ar_sha, target_interface->addr, ethertype(ethertype_arp));
+                        setEthHeader((struct sr_ethernet_hdr *)pkt->buf, arp_hdr->ar_sha, target_interface->addr, ethHeader->ether_type);
                         sr_send_packet(sr, pkt->buf, pkt->len, pkt->iface);
                     }
                     sr_arpreq_destroy(&(sr->cache), arpreq);
@@ -126,7 +144,8 @@ void sr_handlepacket(struct sr_instance* sr,
     }
 
     else if (ethProtocol == ethertype_ip) {//if IP
-    
+        printf("2");
+        fflush(stdout);
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_ip_hdr *ip_hdr = (struct sr_ip_hd *)frame;
         struct sr_if *target_interface=searchIP(sr,ip_hdr->ip_dst); //check if the IP is one of our interfaces
@@ -140,7 +159,7 @@ void sr_handlepacket(struct sr_instance* sr,
         }
 
         if (target_interface!=NULL) { //the target is one of our interfaces
-
+            printf("3");
             int protocol = ip_protocol(frame); //get the ip protocol
             if (protocol == ip_protocol_icmp) { //if it is ICMP handle it
 
@@ -161,7 +180,10 @@ void sr_handlepacket(struct sr_instance* sr,
             
             }
             else if (protocol == ip_protocol_tcp || protocol == ip_protocol_udp) { // if its TCP or UDP, send an ICMP unreachable type3 code3
+                printf("4");
+                fflush(stdout);
                 sendICMPHeader3(sr, target_interface, source_if, ip_hdr, 3);
+                printf("Should work");
             }
         } else { //if not, forward the packet
             ip_hdr->ip_ttl--; // decraease TTL and recompute checksum
@@ -198,7 +220,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 }/* end sr_ForwardPacket */
 
-void setEthHeader(struct sr_ethernet_hdr *hdr, uint8_t *dst, uint8_t *src, uint16_t type) {
+void setEthHeader(struct sr_ethernet_hdr *hdr, unsigned char *dst, unsigned char *src, uint16_t type) {
   memcpy(hdr->ether_dhost, dst, ETHER_ADDR_LEN);
   memcpy(hdr->ether_shost, src, ETHER_ADDR_LEN);
   hdr->ether_type = htons(type);
@@ -206,7 +228,10 @@ void setEthHeader(struct sr_ethernet_hdr *hdr, uint8_t *dst, uint8_t *src, uint1
 
 void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hdr *arp_hdr, unsigned short type) {
     memcpy(hdr, arp_hdr, sizeof(sr_arp_hdr_t));
-    hdr->ar_op = htons(type);
+
+    printf("TYPE: %d\n", type);
+    fflush(stdout);
+    hdr->ar_op = type;
     memcpy(hdr->ar_sha, source->addr, ETHER_ADDR_LEN);
     hdr->ar_sip = source->ip;
     memcpy(hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
@@ -283,8 +308,8 @@ int check_length(uint8_t *buf, unsigned int len){
     // functions as expect when we do `(!check_length)`
     // tl;dr !check_length(...)is true iff buff is the expected length
     int min = sizeof(sr_ethernet_hdr_t);
-    uint16_t type = ethertype(buf);
 
+    uint16_t type = ethertype(buf);
     if (len < min) return 1;
 
     if (type == ethertype_ip) { //if its an ip packet
