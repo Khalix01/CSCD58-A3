@@ -96,10 +96,6 @@ void sr_handlepacket(struct sr_instance* sr,
     struct sr_ethernet_hdr *ethHeader = (struct sr_ethernet_hdr *)packet; //extract headers
     uint16_t chksum, ethProtocol = ethertype(packet); //get protocol
     struct sr_if *source_if = sr_get_interface(sr, interface);
-
-    printf("1\n");
-    print_hdrs(packet, len);
-    fflush(stdout);
     
     if (ethProtocol == ethertype_arp) { //If ARP
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
@@ -116,17 +112,9 @@ void sr_handlepacket(struct sr_instance* sr,
                 setARPHeader(sr_arp_send_hdr->arp_hdr, target_interface, arp_hdr, arp_op_reply);
                 setEthHeader(sr_arp_send_hdr->eth_hdr, ethHeader->ether_shost, target_interface->addr, ethHeader->ether_type); //ethertype(ethHeader->ether_type) arp_hdr->ar_sha
 
-                //print(ethHeader->)
-
-                print_hdr_eth(sr_arp_send_hdr->eth_hdr);
-                print_hdr_arp(sr_arp_send_hdr->arp_hdr);
-
-                sr_send_arp(sr, sr_arp_send_hdr, len, interface); //Not sure about this
-                //free(sr_arp_send_hdr);
+                sr_send_arp(sr, sr_arp_send_hdr, len, interface);
             }
             else if (ntohs(arp_hdr->ar_op) == arp_op_reply) {//if it is a reply
-                printf("ARP reply");
-                fflush(stdout);
                 struct sr_arpreq *arpreq = sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, ntohl(arp_hdr->ar_sip));// insert into cache
                 if (arpreq) {//send all packets on the req->packets linked list
                     for (struct sr_packet *pkt=arpreq->packets; pkt != NULL; pkt=pkt->next) {
@@ -140,8 +128,6 @@ void sr_handlepacket(struct sr_instance* sr,
     }
 
     else if (ethProtocol == ethertype_ip) {//if IP
-        printf("2");
-        fflush(stdout);
         uint8_t *frame = packet+sizeof(sr_ethernet_hdr_t);
         struct sr_ip_hdr *ip_hdr = (struct sr_ip_hd *)frame;
         struct sr_if *target_interface=searchIP(sr,ip_hdr->ip_dst); //check if the IP is one of our interfaces
@@ -158,7 +144,7 @@ void sr_handlepacket(struct sr_instance* sr,
             int protocol = ip_protocol(frame); //get the ip protocol
             if (protocol == ip_protocol_icmp) { //if it is ICMP handle it
 
-                struct sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr *)(frame+sizeof(sr_ip_hdr_t));
+                struct sr_icmp_hdr *icmp_hdr = (struct sr_icmp_hdr *)(frame+sizeof(sr_ip_hdr_t)); ///get icmp header
                 if (icmp_hdr->icmp_type != (uint8_t) 8) {
                     fprintf(stderr, "Not a ICMP echo\n");
                     return;
@@ -172,41 +158,27 @@ void sr_handlepacket(struct sr_instance* sr,
                   return;
                 }
 
-                printf("3");
-                fflush(stdout);
                 sendICMPHeader(sr, target_interface, source_if, ip_hdr, 0, 0, interface, ethHeader, len);
             }
             else if (protocol == ip_protocol_tcp || protocol == ip_protocol_udp) { // if its TCP or UDP, send an ICMP unreachable type3 code3
-                printf("4");
-                fflush(stdout);
                 sendICMPHeader3(sr, target_interface, source_if, ip_hdr, 3, interface, ethHeader, len);
-                printf("Should work");
-                fflush(stdout);
             }
-        } else { //if not, forward the packet
-            printf("Should 1");
-            fflush(stdout);
+        } else { //if not handled by our interfaces, forward the packet
             ip_hdr->ip_ttl--; // decraease TTL and recompute checksum
             ip_hdr->ip_sum = 0;
             ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
             if (ip_hdr->ip_ttl < 0) {//if TTL has run out
                 sendICMPHeader(sr, target_interface, source_if, ip_hdr, 11, 0, interface, ethHeader, len);
             } else{ //else forwad the packet
-                printf("Should 2");
-                fflush(stdout);
                 struct sr_if* target_interface = searchSubnet(sr, ip_hdr->ip_dst); //USE LPM to find subnet
-                printf("Should 4");
-                fflush(stdout);
                 if (target_interface !=NULL) { //it is a handled interface                    
-                    printf("Should 3");
-                    fflush(stdout);
                     struct sr_arpentry *entry = sr_arpcache_lookup(&(sr->cache), ntohl(ip_hdr->ip_dst)); //find corrosponding ARP entry
                     if (entry) { //if found forward the packet
                         setEthHeader(ethHeader,entry->mac,target_interface->addr,ethHeader->ether_type);
                         sr_send_packet(sr, packet, len, target_interface->name);
                         free(entry);
                     }
-                    else { //else
+                    else { //else, add to queue
                         struct sr_arpreq *req = sr_arpcache_queuereq(&(sr->cache), ntohl(ip_hdr->ip_dst), packet, len, target_interface->name);
                         handle_arpreq(sr, req);
                     }
@@ -214,8 +186,6 @@ void sr_handlepacket(struct sr_instance* sr,
                 }
                 else {
                     //send ICMP type 3 code 0 since its not a handled interface
-                    printf("Should 5");
-                    fflush(stdout);
                     sendICMPHeader3(sr, target_interface, source_if, ip_hdr, 0, interface, ethHeader, len);
                 }
             }
@@ -224,6 +194,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 }/* end sr_ForwardPacket */
 
+/* Set Ethernet Header given a pointer to the Ethernet header, values or dst and src, and the type */
 void setEthHeader(struct sr_ethernet_hdr *hdr, unsigned char *dst, unsigned char *src, uint16_t type) {
     fflush(stdout);
     memcpy(hdr->ether_dhost, dst, ETHER_ADDR_LEN);
@@ -231,12 +202,7 @@ void setEthHeader(struct sr_ethernet_hdr *hdr, unsigned char *dst, unsigned char
     hdr->ether_type = type;
 }
 
-void setEthHeader2(struct sr_ethernet_hdr *hdr, unsigned char *dst, unsigned char *src, uint16_t type) {
-  memcpy(hdr->ether_dhost, dst, ETHER_ADDR_LEN);
-  memcpy(hdr->ether_shost, src, ETHER_ADDR_LEN);
-  hdr->ether_type = type;
-}
-
+/* Set ARP Header given a pointer to the ARP header, pointer to source interface, pointer to the received ARP header, and the operation type */
 void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hdr *arp_hdr, unsigned short type) {
     memcpy(hdr, arp_hdr, sizeof(sr_arp_hdr_t));
 
@@ -248,6 +214,7 @@ void setARPHeader(struct sr_arp_hdr *hdr, struct sr_if *source, struct sr_arp_hd
     hdr->ar_tip = arp_hdr->ar_sip;
 }
 
+/* Set IP Header given a pointer to the IP Header, pointer to received IP header, and values of destination and src */
 void setIPHeader(struct sr_ip_hdr *hdr, struct sr_ip_hdr* rec_hdr, uint32_t dst, uint32_t src) {
     memcpy(hdr, rec_hdr, sizeof(struct sr_ip_hdr));
     hdr->ip_src = src;
@@ -281,12 +248,14 @@ void sendICMPHeader(struct sr_instance* sr, struct sr_if *target_interface, stru
     setIPHeader(icmp_pack->ip_hdr, ip_hdr, ip_hdr->ip_src, ip_hdr->ip_dst);
     setICMPHeader(icmp_pack->icmp_hdr, icmp_type, icmp_code, len);
 
+    //Issues with sending, hence we print it.
     print_hdr_eth(icmp_pack->eth_hdr);
     print_hdr_ip(icmp_pack->ip_hdr);
     print_hdr_icmp(icmp_pack->icmp_hdr);
 
     fflush(stdout);
 
+    //attempt to send
     sr_send_icmp(sr, icmp_pack, icmp_len, interface);
 }
 
@@ -302,11 +271,14 @@ void sendICMPHeader3(struct sr_instance* sr, struct sr_if *target_interface, str
     setIPHeader(icmp_pack3->ip_hdr, ip_hdr, ip_hdr->ip_src, source_if->ip); //->ip_src, ip_hdr->ip_dst, ip_protocol_icmp);
     setICMPHeader3(icmp_pack3->icmp_hdr, 3, icmp_code, len);
 
+    //Issues with sending, hence we print it
     print_hdr_eth(icmp_pack3->eth_hdr);
     print_hdr_ip(icmp_pack3->ip_hdr);
     print_hdr_icmp(icmp_pack3->icmp_hdr);
     
     fflush(stdout);
+
+    //Attempt to send
     sr_send_icmp3(sr, icmp_pack3, icmp_len3, interface);
 }
 
